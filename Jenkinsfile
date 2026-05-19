@@ -4,7 +4,7 @@ pipeline {
     environment {
         DOCKER_IMAGE = "poojanerkar/jenkins-trivy-k8s-pipeline"
         DOCKER_TAG = "latest"
-        K8S_MASTER = "ubuntu@13.206.235.13"
+        K8S_MASTER = "ubuntu@65.2.183.239"
     }
 
     stages {
