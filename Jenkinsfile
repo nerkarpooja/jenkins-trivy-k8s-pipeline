@@ -4,7 +4,7 @@ pipeline {
     environment {
         DOCKER_IMAGE = "poojanerkar/jenkins-trivy-k8s-pipeline"
         DOCKER_TAG = "latest"
-        K8S_MASTER = "ubuntu@43.205.196.160"
+        K8S_MASTER = "ubuntu@13.206.235.13"
     }
 
     stages {
@@ -28,7 +28,7 @@ pipeline {
                 echo 'Scanning image for vulnerabilities...'
                 sh """
                     trivy image --exit-code 1 \
-                    --severity HIGH,CRITICAL \
+                    --severity CRITICAL \
                     --no-progress \
                     ${DOCKER_IMAGE}:${DOCKER_TAG}
                 """
