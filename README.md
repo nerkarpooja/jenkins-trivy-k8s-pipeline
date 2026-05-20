@@ -1,21 +1,23 @@
-# CI/CD Pipeline with Automated Docker Security Scanning & Kubernetes Deployment
+# Secure CI/CD Pipeline using Jenkins, Trivy & Kubernetes
 
-A production-style DevSecOps project that demonstrates how to build a secure CI/CD pipeline using Jenkins, Docker, Trivy, and Kubernetes.
+This project demonstrates a secure CI/CD pipeline where Docker images are automatically scanned for vulnerabilities before deployment to Kubernetes.
 
-This pipeline automatically scans Docker images for vulnerabilities before deployment and blocks insecure images from reaching production.
+I built this project to understand how DevOps and security practices work together in real-world deployment workflows.
 
 ---
 
 # Project Objective
 
-The security team discovered vulnerabilities inside production containers.  
-To solve this problem, a secure CI/CD workflow was implemented where:
+The goal of this project is to prevent vulnerable Docker images from reaching production environments.
 
-- Docker images are automatically scanned using Trivy
-- Jenkins pipeline fails if CRITICAL vulnerabilities are detected
-- Only secure images are pushed and deployed to Kubernetes
+The pipeline automatically:
 
-This project demonstrates how DevSecOps practices can be integrated into modern CI/CD workflows.
+- Pulls code from GitHub
+- Builds a Docker image
+- Scans the image using Trivy
+- Fails the pipeline if CRITICAL vulnerabilities are found
+- Pushes only secure images to DockerHub
+- Deploys the application to Kubernetes
 
 ---
 
@@ -25,65 +27,50 @@ This project demonstrates how DevSecOps practices can be integrated into modern 
 
 ---
 
-# Tech Stack
+# Technologies Used
 
-| Tool | Purpose |
-|---|---|
-| Jenkins | CI/CD Automation |
-| Docker | Containerization |
-| Trivy | Vulnerability Scanning |
-| Kubernetes | Container Orchestration |
-| GitHub | Source Code Management |
-| DockerHub | Container Registry |
-| Node.js | Application Runtime |
+- Jenkins
+- Docker
+- Kubernetes
+- Trivy
+- GitHub
+- DockerHub
+- Node.js
+- AWS EC2
 
 ---
 
 # Project Workflow
 
 ```text
-Developer pushes code to GitHub
-                │
-                ▼
-        Jenkins Pipeline Starts
-                │
-        ┌──── Clone Repository
-        │
-        ├──── Build Docker Image
-        │
-        ├──── Trivy Security Scan
-        │          │
-        │          ├── CRITICAL Vulnerabilities Found ❌
-        │          │         → Pipeline Fails
-        │          │
-        │          └── No CRITICAL Vulnerabilities ✅
-        │
-        ├──── Push Image to DockerHub
-        │
-        └──── Deploy to Kubernetes
-                       │
-                       ▼
-              Application Running
+GitHub Push
+     │
+     ▼
+Jenkins Pipeline
+     │
+     ├── Clone Repository
+     ├── Build Docker Image
+     ├── Trivy Security Scan
+     │       │
+     │       ├── CRITICAL Found → Pipeline Fails ❌
+     │       └── No Issues Found → Continue ✅
+     │
+     ├── Push Image to DockerHub
+     └── Deploy to Kubernetes
 ```
 
 ---
 
 # Infrastructure Setup
 
-| Server | Role | OS |
-|---|---|---|
-| Jenkins Server | Jenkins + Docker + Trivy | Ubuntu 22.04 |
-| Kubernetes Master | Kubernetes Control Plane | Ubuntu 22.04 |
-| Kubernetes Worker | Application Workloads | Ubuntu 22.04 |
+| Server | Purpose |
+|---|---|
+| Jenkins Server | Jenkins + Docker + Trivy |
+| Kubernetes Master | Kubernetes Control Plane |
+| Kubernetes Worker | Runs Application Containers |
 
 ### AWS Region
 - ap-south-1 (Mumbai)
-
-### Open Ports
-- 22 → SSH
-- 8080 → Jenkins
-- 6443 → Kubernetes API
-- 30000–32767 → NodePort Services
 
 ---
 
@@ -111,24 +98,6 @@ jenkins-trivy-k8s-pipeline/
 
 ---
 
-# Application
-
-Simple Node.js web application:
-
-```javascript
-const http = require('http');
-
-const server = http.createServer((req, res) => {
-  res.statusCode = 200;
-  res.setHeader('Content-Type', 'text/html');
-  res.end('<h1>Secure CI/CD Pipeline Working Successfully</h1>');
-});
-
-server.listen(3000, '0.0.0.0');
-```
-
----
-
 # Dockerfile
 
 ```dockerfile
@@ -145,57 +114,47 @@ EXPOSE 3000
 CMD ["node", "app.js"]
 ```
 
-### Why `apk upgrade`?
-
-This step updates Alpine packages and helps reduce known vulnerabilities before the Trivy scan runs.
+I used `apk upgrade` to update Alpine packages and reduce vulnerabilities before the Trivy scan.
 
 ---
 
 # Jenkins Pipeline
 
-The Jenkins pipeline performs the following tasks:
+The Jenkins pipeline performs these steps:
 
-1. Pull source code from GitHub
+1. Pull code from GitHub
 2. Build Docker image
 3. Scan image using Trivy
-4. Fail pipeline if CRITICAL vulnerabilities are found
-5. Push secure image to DockerHub
-6. Deploy application to Kubernetes
+4. Push secure image to DockerHub
+5. Deploy application to Kubernetes
 
 ---
 
 # Security Gating Logic
 
-The most important part of this project is the security gate implemented using Trivy.
+The most important part of this project is the security scan stage.
 
-```text
-Docker Image Built
-        │
-        ▼
-Trivy Vulnerability Scan
-        │
-        ├── CRITICAL Vulnerabilities Found
-        │           │
-        │           └── Jenkins Build Fails ❌
-        │
-        └── No CRITICAL Vulnerabilities
-                    │
-                    └── Deployment Continues ✅
-```
+Trivy scans the Docker image for vulnerabilities before deployment.
 
-### Trivy Scan Command
+If CRITICAL vulnerabilities are detected:
+- Jenkins automatically fails the pipeline
+- Docker image is not pushed
+- Kubernetes deployment does not happen
+
+---
+
+# Trivy Scan Command
 
 ```bash
 trivy image --exit-code 1 --severity CRITICAL image-name
 ```
 
-### How It Works
+### Important Flags
 
-- `--severity CRITICAL` checks only critical vulnerabilities
-- `--exit-code 1` forces Jenkins to fail the pipeline if vulnerabilities are detected
-- Deployment stages are skipped automatically after failure
-
-This ensures that insecure Docker images never reach the Kubernetes environment.
+| Flag | Purpose |
+|---|---|
+| `--severity CRITICAL` | Checks only critical vulnerabilities |
+| `--exit-code 1` | Fails Jenkins pipeline if vulnerabilities are found |
 
 ---
 
@@ -235,15 +194,15 @@ type: NodePort
 nodePort: 30001
 ```
 
-Complete Kubernetes manifests are available inside the `k8s/` directory.
+Complete Kubernetes YAML files are available inside the `k8s/` directory.
 
 ---
 
 # Security Validation
 
-To validate the security gate, a vulnerable Docker image was intentionally used.
+To test the security gate, I intentionally used a vulnerable Docker base image.
 
-### Vulnerable Base Image
+### Vulnerable Image
 
 ```dockerfile
 FROM node:18-alpine
@@ -258,9 +217,8 @@ CRITICAL: 4
 ```
 
 Result:
-- Jenkins pipeline failed successfully
-- Deployment was blocked
-- Vulnerable image was never deployed
+- Pipeline failed successfully ✅
+- Deployment was blocked ✅
 
 ---
 
@@ -292,16 +250,16 @@ kubectl get svc
 Expected Output:
 
 ```text
-NAME                          READY   STATUS
-nodejs-app-xxxxx              1/1     Running
-nodejs-app-yyyyy              1/1     Running
+NAME                         READY   STATUS
+nodejs-app-xxxxx             1/1     Running
+nodejs-app-yyyyy             1/1     Running
 ```
 
 ---
 
 # Application Access
 
-The application is exposed using a Kubernetes NodePort service.
+The application is accessible using Kubernetes NodePort service:
 
 ```text
 http://<worker-node-ip>:30001
@@ -341,42 +299,31 @@ http://<worker-node-ip>:30001
 
 ---
 
-# Learning Outcomes
+# What I Learned
 
 Through this project, I learned:
 
-- CI/CD pipeline automation using Jenkins
+- How Jenkins CI/CD pipelines work
 - Docker image creation and optimization
 - Kubernetes deployment basics
 - Vulnerability scanning using Trivy
-- DevSecOps security practices
+- Security-first DevOps practices
 - Automated deployment workflows
-- Containerized application deployment
 
 ---
 
 # Future Improvements
 
-- Integrate SonarQube for code quality analysis
-- Add Slack or email notifications
-- Implement GitHub Webhooks
+- Add SonarQube for code quality scanning
+- Integrate GitHub Webhooks
+- Add Slack/Email notifications
 - Use Helm charts for Kubernetes deployment
-- Add rolling updates and rollback strategies
-- Store secrets securely using Kubernetes Secrets or Vault
+- Implement rolling updates and rollback strategies
 
 ---
 
 # Conclusion
 
-This project demonstrates how security can be integrated directly into a CI/CD pipeline using DevSecOps practices.
+This project helped me understand how security can be integrated into a CI/CD pipeline using DevSecOps practices.
 
-By implementing automated vulnerability scanning with Trivy, the pipeline ensures that insecure Docker images never reach the Kubernetes cluster. Only validated and secure images are deployed, improving production security and deployment reliability.
-
-This project also demonstrates practical experience with:
-- Jenkins
-- Docker
-- Kubernetes
-- Trivy
-- GitHub
-- CI/CD Automation
-- DevSecOps Workflows
+Using Trivy as a security gate ensures that vulnerable Docker images are blocked before deployment. Only secure images are pushed and deployed to Kubernetes automatically.
